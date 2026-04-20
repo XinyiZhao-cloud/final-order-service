@@ -29,7 +29,8 @@ app.post("/orders", (req, res) => {
         id: orders.length + 1,
         customerName,
         items,
-        status: "Pending"
+        status: "Pending",
+        createdAt: new Date().toISOString()
     };
 
     orders.push(newOrder);
