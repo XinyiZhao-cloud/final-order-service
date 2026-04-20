@@ -8,7 +8,7 @@ app.use(express.json());
 
 const PORT = 3002;
 
-// Temporary in-memory orders
+// In-memory orders 
 let orders = [];
 
 // Health check
@@ -25,12 +25,28 @@ app.get("/orders", (req, res) => {
 app.post("/orders", (req, res) => {
     const { customerName, items } = req.body;
 
+    const normalizedItems = (items || []).map((item) => {
+        const quantity = Number(item.quantity) || 1;
+        const price = Number(item.price) || 0;
+
+        return {
+            productId: item.productId || null,
+            name: item.name || "Unknown Product",
+            quantity,
+            price,
+            subtotal: quantity * price
+        };
+    });
+
+    const totalAmount = normalizedItems.reduce((sum, item) => sum + item.subtotal, 0);
+
     const newOrder = {
-        id: orders.length + 1,
-        customerName,
-        items,
+        id: orders.length > 0 ? orders[orders.length - 1].id + 1 : 1,
+        customerName: customerName || "Guest",
+        items: normalizedItems,
         status: "Pending",
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        totalAmount
     };
 
     orders.push(newOrder);
@@ -40,14 +56,41 @@ app.post("/orders", (req, res) => {
 // Update order status
 app.put("/orders/:id", (req, res) => {
     const id = Number(req.params.id);
-    const order = orders.find(o => o.id === id);
+    const order = orders.find((o) => o.id === id);
 
     if (!order) {
         return res.status(404).json({ message: "Order not found" });
     }
 
-    order.status = req.body.status;
+    const { status } = req.body;
+
+    if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+    }
+
+    order.status = status;
     res.json(order);
+});
+
+// Delete order (optional, nice for demo)
+app.delete("/orders/:id", (req, res) => {
+    const id = Number(req.params.id);
+    const index = orders.findIndex((o) => o.id === id);
+
+    if (index === -1) {
+        return res.status(404).json({ message: "Order not found" });
+    }
+
+    const deleted = orders[index];
+    orders.splice(index, 1);
+
+    res.json({ message: "Order deleted", order: deleted });
+});
+
+// Reset orders (for testing/demo purposes) 
+app.post("/reset-orders", (req, res) => {
+    orders = [];
+    res.json({ message: "Orders reset" });
 });
 
 app.listen(PORT, () => {
